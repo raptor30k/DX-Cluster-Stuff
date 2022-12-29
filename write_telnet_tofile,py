@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+
+import sys
+import telnetlib
+
+def main(args):
+	global tn, saveFile
+	tn_host = "dxc.nc7j.com"
+	tn_port = 7373
+	tn_username = "K7UOP-11\n"
+
+	tn_host = "25.66.85.76" # hamachi addr for HMTF A-qtrs
+	tn_port = 7300 # for CW Skimmer
+	tn_username = "K7UOP\n"
+	# dx_filter = "set dx filter\n"
+	# dx_filter = "set dx filter spotter=WA7LNW-#\n"
+	# dx_filter = "set dx filter spottercont = NA"
+	# dx_filter = "set dx filter spotterstate=[AZ,UT,NV,CA,NM]\n"
+	dx_filter = ""
+
+	filename = "hmtf_skimmer_msgs.txt"
+	saveFile = open(filename, "a")
+
+	try:
+		tn = telnetlib.Telnet(tn_host, tn_port, 5)
+	except:
+		print("Unable to connect to Telnet server: " + tn_host)
+		return
+	#tn.set_debuglevel(100)
+	# tn.read_until(b"Please enter your call:\r")
+	tn.read_until(b"our call")
+	reply = tn_username + dx_filter
+	tn.write(reply.encode())
+	while True:
+		msg = tn.read_until(b"\n")
+		if msg.startswith(b'DX de'):
+			saveLine(msg.rstrip().decode())
+	return 0
+
+def saveLine(msg):
+	print(msg)
+	saveFile.write(msg + "\n")
+	saveFile.flush()
+
+if __name__ == '__main__':
+	try:
+		main(sys.argv)
+	except KeyboardInterrupt:
+		print('Caught CTRL-C')
+		tn.write("Bye".encode())
+		tn.close()
+		saveFile.close()
+		sys.exit
