@@ -24,7 +24,11 @@ TCPserver = any
 login = False
 lineList = any
 data_file = "skimmer/skimmerMsgs_20221218_073721Z_1900kHz"
+data_file = "skimmer_msgs.txt"
 
+
+class TcpClient():
+    pass
 
 
 def readFile():
@@ -34,16 +38,9 @@ def readFile():
     
 
 def processFile(client):
+    global telnetServer
     readFile()
     for line in lineList:
-        # 0.........1.........2.........3.........4.........5.........6.........7.........
-        # 01234567890123456789012345678901234567890123456789012345678901234567890123456789
-        # DX de RW7F:		21190.0  R3UG         TNX                            0849Z
-        # DX de SV3GLL:	24915.0  UT8IA        FT8 - 03dB from KN29 1414Hz    0849Z KM17
-        # DX de DJ9YE:     50313.0  OH6OKSA      JO43HV<ES>KP32EQ FT8 mni tnx Q 0849Z JO43
-        # DX de DL4CH:  10489710.0  DF7DQ        qo 100                         0853Z
-        # DX de K6YR:       1828.5  W7CXX        CW                             2202Z
-        # DX de K7UOP-#:    1836.5  VA7MM          32 dB  20 WPM                1812Z
         time.sleep(1)
         timeNow = datetime.utcnow().strftime("%H%M")+'Z'
         newLine = line[:-5] + timeNow
@@ -67,13 +64,14 @@ def process_userInput(client, message):
         # reply = 'Hello  ' + callsign
         reply = callsign + " de K7UOP arc>"
         telnetServer.send_message(client, reply)
-        print(reply)
+        print("sent to Client {}: {}".format(client, reply))
         login = False
         # processFile(client)
     elif  message.lower() == "bye":
-        telnetServer.shutdown()
+        pass
+        # telnetServer.shutdown()
         # TCPserver.shutdown()
-        quit()
+        # quit()
     elif message.lower() == "sendfile":
         processFile(client)
 
@@ -101,34 +99,33 @@ def run_main_loop(tcpInput):
 
             # Remove him from the clients list
             clients.remove(disconnected_client)
-            if len(clients) == 0:
-                print("Client {} disconnected. {} Clients remaining.".format(disconnected_client, len(clients)))
-                
 
-            # Send every client a message saying "Client X disconnected"
-            for client in clients:
-                telnetServer.send_message(client, "Client {} disconnected.".format(disconnected_client))
-                print("Client {} disconnected. {} Clients remaining.".format(disconnected_client, len(clients)))
-
+            print("Client {} disconnected. {} Clients remaining.".format(disconnected_client, len(clients)))
+        
+        
         # For each message a client has sent
         for sender_client, message in telnetServer.get_messages(): 
             if sender_client not in clients:
                 continue
-
+            
+            process_userInput(sender_client, message)
             print("Client {} sent: {}".format(sender_client, message))
-
-            # Send every client a message reading: "I received "[MESSAGE]" from client [ID OF THE SENDER CLIENT]"
-            for client in clients:
-                # telnetServer.send_message(client, 'I received "{}" from client {}'.format(message, sender_client))
-                process_userInput(client, message)
         
         # check for TCP input messages and send to telnet clients
-        if len(clients) > 0:
-            msg = get_q(tcpInput).rstrip()
-            if len(msg) > 0:
-                print(msg) #.rstrip())
-                for client in clients:
-                    telnetServer.send_message(client, msg)
+        """ 
+        NOTE: If 0 clients, the tcpInput Queue would fill up and creates multiple new Threads.
+        Should figure out a way to disable / turn off TCP server when no clients.
+        Temporarily just emptying the queue while no clients.
+        Checking "login" prevents disruption of the log on process.
+        """
+        if login or (len(clients) == 0 and not tcpInput.empty()):
+            tcpInput.queue.clear()
+            continue
+        msg = get_q(tcpInput).strip()
+        if len(msg) > 0 and msg.startswith("DX de"):
+            print(msg) #.rstrip())
+            for client in clients:
+                telnetServer.send_message(client, msg)
 
 
 def TCPclient(ip, port, message):
@@ -154,15 +151,20 @@ def get_q(que):
         pass
     return ''
 
-def main():
+def main(args):
     global telnetServer, tcpServer
     telnetServer = TelnetServer(port=8888)
     
-    input_q = Queue(maxsize=5)
+    input_q = Queue() #(maxsize=5)
     tcpServer = startTCP_server(TCPHOST, 7772, input_q)
 
     run_main_loop(input_q)
+    
 
 if __name__ == "__main__":
-    main()
+    try:
+        main(sys.argv)
+    except KeyboardInterrupt:
+        print('Caught CTRL-C')
+        sys.exit
 
