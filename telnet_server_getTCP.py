@@ -56,13 +56,17 @@ def valid_callsign(call):
     else:
         return False
 
+def get_loginDate():
+    return datetime.utcnow().strftime("%d-%b %H%M")+'Z'
+
+
 def process_userInput(client, message):
     global callsign, login
     match = callsign_pattern.match(message)
     if valid_callsign(message) and login:
         callsign = message # match.group(1)
-        # reply = 'Hello  ' + callsign
-        reply = callsign + " de K7UOP arc>"
+        dateStr = get_loginDate()
+        reply = callsign + " de K7UOP "+dateStr+" arc >"
         telnetServer.send_message(client, reply)
         print("sent to Client {}: {}".format(client, reply))
         login = False
@@ -111,7 +115,6 @@ def run_main_loop(tcpInput):
             process_userInput(sender_client, message)
             print("Client {} sent: {}".format(sender_client, message))
         
-        # check for TCP input messages and send to telnet clients
         """ 
         NOTE: If 0 clients, the tcpInput Queue would fill up and creates multiple new Threads.
         Should figure out a way to disable / turn off TCP server when no clients.
@@ -121,6 +124,8 @@ def run_main_loop(tcpInput):
         if login or (len(clients) == 0 and not tcpInput.empty()):
             tcpInput.queue.clear()
             continue
+        
+        # check Queue for TCP input messages and send to telnet clients
         msg = get_q(tcpInput).strip()
         if len(msg) > 0 and msg.startswith("DX de"):
             print(msg) #.rstrip())
