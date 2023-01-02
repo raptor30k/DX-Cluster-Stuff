@@ -1,6 +1,7 @@
 # DX-Cluster-Stuff
 
-Very simplistic functional programming, only using Objects where necessary. 
+Very simplistic functional programming, only using Objects where necessary.
+Definitely a work in progress.  Caveat Emptor
 
 Python programs to connect to a DX Cluster Telnet server and either:
   1. write_telnet_tofile.py - logs in and then writes DX de lines to a file.
