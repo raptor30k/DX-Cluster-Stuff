@@ -23,7 +23,7 @@ TCPHOST, TCPPORT = "localhost", 7777
 TCPserver = any
 login = False
 lineList = any
-data_file = "skimmer/skimmerMsgs_20221218_073721Z_1900kHz"
+# data_file = "skimmerMsgs_20221218_073721Z_1900kHz.txt"
 data_file = "skimmer_msgs.txt"
 
 
@@ -31,16 +31,15 @@ class TcpClient():
     pass
 
 
-def readFile():
-    global lineList
-    with open(data_file) as f:
+def readFile(file):
+    with open(file) as f:
         lineList = f.read().splitlines()
+    return lineList
     
 
-def processFile(client):
+def processFile(client,file):
     global telnetServer
-    readFile()
-    for line in lineList:
+    for line in readFile(file):
         time.sleep(1)
         timeNow = datetime.utcnow().strftime("%H%M")+'Z'
         newLine = line[:-5] + timeNow
@@ -49,7 +48,6 @@ def processFile(client):
     
 
 def valid_callsign(call):
-    import re
     valid = re.match('^[a-zA-Z0-9]{1,2}\d{1,2}[a-zA-Z]{1,3}(/[pP])?$', call, re.DOTALL)
     if valid:
         return True
@@ -77,7 +75,7 @@ def process_userInput(client, message):
         # TCPserver.shutdown()
         # quit()
     elif message.lower() == "sendfile":
-        processFile(client)
+        processFile(client,data_file)
 
 def run_main_loop(tcpInput):
     global login, tcpServer
@@ -132,6 +130,13 @@ def run_main_loop(tcpInput):
             for client in clients:
                 telnetServer.send_message(client, msg)
 
+def get_q(que):
+    try:
+        inputmsg = que.get(False) # make it non-blocking
+        return inputmsg.decode()
+    except Exception as e: #Queue.Empty:
+        pass
+    return ''
 
 def TCPclient(ip, port, message):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -147,14 +152,6 @@ def startTCP_server(TCPHOST, TCPPORT, que):
     TCPserver_thread.start()
     print("TCPserver loop running in thread:", TCPserver_thread.name, TCPPORT)
     return TCPserver
-
-def get_q(que):
-    try:
-        inputmsg = que.get(False) # make it non-blocking
-        return inputmsg.decode()
-    except Exception as e: #Queue.Empty:
-        pass
-    return ''
 
 def main(args):
     global telnetServer, tcpServer
